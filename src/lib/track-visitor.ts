@@ -15,9 +15,53 @@ export async function trackVisitor() {
     const referrer = document.referrer;
     const page = window.location.pathname;
 
-    // IP adresini almak için harici bir servis kullanılabilir
-    // Burada basitlik için sabit bir değer kullanıyoruz
-    const ip = "127.0.0.1";
+    // IP adresini ve ülke bilgisini almak için harici bir servis kullan
+    let ip = "127.0.0.1";
+    let country = "Unknown";
+
+    try {
+      // Use a more reliable IP API with caching
+      const cachedIp = sessionStorage.getItem("visitor_ip");
+      const cachedCountry = sessionStorage.getItem("visitor_country");
+
+      if (cachedIp && cachedCountry) {
+        ip = cachedIp;
+        country = cachedCountry;
+      } else {
+        // IP bilgisini almak için ipify API kullan
+        const ipResponse = await fetch("https://api.ipify.org?format=json", {
+          method: "GET",
+          cache: "force-cache",
+        }).catch(() => null);
+
+        if (ipResponse && ipResponse.ok) {
+          const ipData = await ipResponse.json();
+          ip = ipData.ip;
+
+          // Ülke bilgisini almak için ipapi.co kullan
+          const geoResponse = await fetch(`https://ipapi.co/${ip}/json/`, {
+            method: "GET",
+            cache: "force-cache",
+          }).catch(() => null);
+
+          if (geoResponse && geoResponse.ok) {
+            const geoData = await geoResponse.json();
+            country = geoData.country_name || "Unknown";
+
+            // Cache the results in sessionStorage
+            try {
+              sessionStorage.setItem("visitor_ip", ip);
+              sessionStorage.setItem("visitor_country", country);
+            } catch (storageError) {
+              console.log("SessionStorage error:", storageError);
+            }
+          }
+        }
+      }
+    } catch (geoError) {
+      console.log("Error getting geolocation data:", geoError);
+      // Hata durumunda varsayılan değerleri kullan
+    }
 
     try {
       const response = await fetch("/api/track-visitor", {
@@ -31,6 +75,7 @@ export async function trackVisitor() {
           language,
           referrer,
           page,
+          country,
         }),
       });
 

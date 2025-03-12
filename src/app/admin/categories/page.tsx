@@ -94,13 +94,39 @@ export default function AdminCategories() {
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("categories")
-        .select("*")
-        .order("name");
 
-      if (error) throw error;
-      setCategories(data || []);
+      // Check cache first
+      const cacheKey = "adminCategories";
+      const cachedData = sessionStorage.getItem(cacheKey);
+      const cacheTimestamp = parseInt(
+        sessionStorage.getItem("adminCategoriesTimestamp") || "0",
+      );
+      const now = Date.now();
+      const cacheExpiry = 2 * 60 * 1000; // 2 minutes
+
+      if (cachedData && now - cacheTimestamp < cacheExpiry) {
+        // Use cached data
+        const parsedData = JSON.parse(cachedData);
+        setCategories(parsedData);
+      } else {
+        // Fetch from database
+        const { data, error } = await supabase
+          .from("categories")
+          .select("*")
+          .order("name");
+
+        if (error) throw error;
+        setCategories(data || []);
+
+        // Cache the results
+        try {
+          sessionStorage.setItem(cacheKey, JSON.stringify(data || []));
+          sessionStorage.setItem("adminCategoriesTimestamp", now.toString());
+        } catch (storageError) {
+          console.log("SessionStorage error:", storageError);
+        }
+      }
+
       setSelectedCategories([]);
       setSelectAll(false);
     } catch (error) {

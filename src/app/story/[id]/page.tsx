@@ -46,8 +46,6 @@ import {
 } from "@/components/ui/popover";
 import { supabase } from "@/lib/supabase-client";
 
-// Statik hikaye verileri kaldırıldı
-
 export default function StoryPage() {
   const router = useRouter();
   const params = useParams();
@@ -68,31 +66,49 @@ export default function StoryPage() {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(
-    null,
-  );
+  const [audioElement, setAudioElement] = useState(null);
   const [audioDuration, setAudioDuration] = useState(0);
   const [audioCurrentTime, setAudioCurrentTime] = useState(0);
-  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
-    null,
-  );
+  const [videoElement, setVideoElement] = useState(null);
 
   // Fetch story data from database
   useEffect(() => {
     const fetchStory = async () => {
       setLoading(true);
       try {
-        // Get story from database
-        const { data, error } = await supabase
-          .from("stories")
-          .select("*")
-          .eq("id", uuidStoryId)
-          .single();
+        // Check cache first
+        const cacheKey = `storyPage:${uuidStoryId}`;
+        const cachedData = sessionStorage.getItem(cacheKey);
+        const cacheTimestamp = parseInt(
+          sessionStorage.getItem(`${cacheKey}:timestamp`) || "0",
+        );
+        const now = Date.now();
+        const cacheExpiry = 5 * 60 * 1000; // 5 minutes
 
-        if (error) {
-          throw new Error("Story not found");
+        if (cachedData && now - cacheTimestamp < cacheExpiry) {
+          // Use cached data
+          setStoryData(JSON.parse(cachedData));
         } else {
-          setStoryData(data);
+          // Get story from database
+          const { data, error } = await supabase
+            .from("stories")
+            .select("*")
+            .eq("id", uuidStoryId)
+            .single();
+
+          if (error) {
+            throw new Error("Story not found");
+          } else {
+            setStoryData(data);
+
+            // Cache the results
+            try {
+              sessionStorage.setItem(cacheKey, JSON.stringify(data));
+              sessionStorage.setItem(`${cacheKey}:timestamp`, now.toString());
+            } catch (storageError) {
+              console.log("SessionStorage error:", storageError);
+            }
+          }
         }
       } catch (err) {
         console.error("Error fetching story:", err);
@@ -131,25 +147,32 @@ export default function StoryPage() {
 
   // Initialize audio player
   useEffect(() => {
-    if (storyData?.audioUrl && activeTab === "listen") {
-      const audio = new Audio(storyData.audioUrl);
-      audio.addEventListener("loadedmetadata", () => {
+    if (storyData?.audio_url && activeTab === "listen") {
+      const audio = new Audio(storyData.audio_url);
+
+      const handleLoadedMetadata = () => {
         setAudioDuration(audio.duration);
-      });
-      audio.addEventListener("timeupdate", () => {
+      };
+
+      const handleTimeUpdate = () => {
         setAudioCurrentTime(audio.currentTime);
-      });
-      audio.addEventListener("ended", () => {
+      };
+
+      const handleEnded = () => {
         setIsPlaying(false);
-      });
+      };
+
+      audio.addEventListener("loadedmetadata", handleLoadedMetadata);
+      audio.addEventListener("timeupdate", handleTimeUpdate);
+      audio.addEventListener("ended", handleEnded);
       setAudioElement(audio);
 
       return () => {
         audio.pause();
         audio.src = "";
-        audio.removeEventListener("loadedmetadata", () => {});
-        audio.removeEventListener("timeupdate", () => {});
-        audio.removeEventListener("ended", () => {});
+        audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
+        audio.removeEventListener("timeupdate", handleTimeUpdate);
+        audio.removeEventListener("ended", handleEnded);
       };
     }
   }, [storyData, activeTab]);
@@ -168,11 +191,11 @@ export default function StoryPage() {
     }
   }, [isPlaying, audioElement]);
 
-  const handleFontSizeChange = (value: number[]) => {
+  const handleFontSizeChange = (value) => {
     setFontSize(value[0]);
   };
 
-  const formatTime = (seconds: number) => {
+  const formatTime = (seconds) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = Math.floor(seconds % 60);
     return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
@@ -257,7 +280,10 @@ export default function StoryPage() {
             <div className="sticky top-24">
               <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg mb-4">
                 <Image
-                  src={storyData.coverImage}
+                  src={
+                    storyData.cover_image ||
+                    "https://images.unsplash.com/photo-1618945524163-32451704cbb8?w=300&q=80"
+                  }
                   alt={storyData.title}
                   fill
                   className="object-cover"
@@ -337,6 +363,10 @@ export default function StoryPage() {
                         size="icon"
                         variant="ghost"
                         className="text-blue-600 hover:text-blue-700"
+                        onClick={() => {
+                          const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`;
+                          window.open(url, "_blank", "width=600,height=400");
+                        }}
                       >
                         <Facebook size={18} />
                       </Button>
@@ -344,6 +374,10 @@ export default function StoryPage() {
                         size="icon"
                         variant="ghost"
                         className="text-sky-500 hover:text-sky-600"
+                        onClick={() => {
+                          const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(storyData.title)}&url=${encodeURIComponent(window.location.href)}`;
+                          window.open(url, "_blank", "width=600,height=400");
+                        }}
                       >
                         <Twitter size={18} />
                       </Button>
@@ -351,8 +385,39 @@ export default function StoryPage() {
                         size="icon"
                         variant="ghost"
                         className="text-pink-600 hover:text-pink-700"
+                        onClick={() => {
+                          // Instagram doesn't have a direct share URL, but we can copy the link
+                          navigator.clipboard.writeText(window.location.href);
+                          alert(
+                            "Link kopyalandı! Instagram hikayenizde paylaşabilirsiniz.",
+                          );
+                        }}
                       >
                         <Instagram size={18} />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="text-green-600 hover:text-green-700"
+                        onClick={() => {
+                          const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(storyData.title + " - " + window.location.href)}`;
+                          window.open(url, "_blank", "width=600,height=400");
+                        }}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="lucide lucide-message-circle"
+                        >
+                          <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+                        </svg>
                       </Button>
                     </div>
                   </PopoverContent>
@@ -417,14 +482,14 @@ export default function StoryPage() {
                   <TabsTrigger
                     value="listen"
                     className="flex items-center gap-1"
-                    disabled={!storyData.audioUrl}
+                    disabled={!storyData.audio_url}
                   >
                     <Volume2 size={16} /> {t("story.listenTab")}
                   </TabsTrigger>
                   <TabsTrigger
                     value="watch"
                     className="flex items-center gap-1"
-                    disabled={!storyData.videoUrl}
+                    disabled={!storyData.video_url}
                   >
                     <Play size={16} /> {t("story.watchTab")}
                   </TabsTrigger>
@@ -464,12 +529,15 @@ export default function StoryPage() {
               </TabsContent>
 
               <TabsContent value="listen" className="mt-4">
-                {storyData.audioUrl ? (
+                {storyData.audio_url ? (
                   <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-xl p-8 shadow-lg">
                     <div className="flex flex-col items-center mb-8">
                       <div className="relative w-32 h-32 mb-4 rounded-full overflow-hidden shadow-lg">
                         <Image
-                          src={storyData.coverImage}
+                          src={
+                            storyData.cover_image ||
+                            "https://images.unsplash.com/photo-1618945524163-32451704cbb8?w=300&q=80"
+                          }
                           alt={storyData.title}
                           fill
                           className="object-cover"
@@ -487,9 +555,27 @@ export default function StoryPage() {
                           variant="outline"
                           size="icon"
                           className="rounded-full h-10 w-10"
-                          disabled
+                          onClick={() => {
+                            if (audioElement && audioCurrentTime > 10) {
+                              audioElement.currentTime = audioCurrentTime - 10;
+                            }
+                          }}
                         >
-                          <ChevronLeft size={18} />
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="lucide lucide-rewind-10"
+                          >
+                            <path d="M10 16v-8l-5 4 5 4" />
+                            <path d="M19 16a5 5 0 0 0 0-8" />
+                          </svg>
                         </Button>
 
                         <Button
@@ -508,9 +594,27 @@ export default function StoryPage() {
                           variant="outline"
                           size="icon"
                           className="rounded-full h-10 w-10"
-                          disabled
+                          onClick={() => {
+                            if (audioElement) {
+                              audioElement.currentTime = audioCurrentTime + 10;
+                            }
+                          }}
                         >
-                          <ChevronRight size={18} />
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="lucide lucide-fast-forward-10"
+                          >
+                            <path d="m3 8 5 4-5 4V8Z" />
+                            <path d="M15 8v8h2a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2h-2Z" />
+                          </svg>
                         </Button>
                       </div>
                     </div>
@@ -522,7 +626,19 @@ export default function StoryPage() {
                           {audioDuration ? formatTime(audioDuration) : "0:00"}
                         </span>
                       </div>
-                      <div className="w-full bg-muted/50 rounded-full h-2 mb-4 overflow-hidden">
+                      <div
+                        className="w-full bg-muted/50 rounded-full h-2 mb-4 overflow-hidden cursor-pointer"
+                        onClick={(e) => {
+                          if (audioElement && audioDuration) {
+                            const rect =
+                              e.currentTarget.getBoundingClientRect();
+                            const x = e.clientX - rect.left;
+                            const percentage = x / rect.width;
+                            audioElement.currentTime =
+                              percentage * audioDuration;
+                          }
+                        }}
+                      >
                         <div
                           className="bg-primary h-full rounded-full transition-all duration-300"
                           style={{
@@ -539,8 +655,60 @@ export default function StoryPage() {
                         variant="ghost"
                         size="icon"
                         className="rounded-full h-10 w-10"
+                        onClick={() => {
+                          if (audioElement) {
+                            audioElement.volume = Math.max(
+                              0,
+                              audioElement.volume - 0.1,
+                            );
+                          }
+                        }}
                       >
-                        <Volume2 size={18} />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="lucide lucide-volume-1"
+                        >
+                          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                          <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                        </svg>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="rounded-full h-10 w-10"
+                        onClick={() => {
+                          if (audioElement) {
+                            audioElement.volume = Math.min(
+                              1,
+                              audioElement.volume + 0.1,
+                            );
+                          }
+                        }}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="lucide lucide-volume-2"
+                        >
+                          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                          <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                          <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                        </svg>
                       </Button>
                       <Button
                         variant="ghost"
@@ -598,6 +766,33 @@ export default function StoryPage() {
                           }
                         />
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="rounded-full h-10 w-10"
+                        onClick={() => {
+                          if (audioElement) {
+                            audioElement.playbackRate =
+                              audioElement.playbackRate === 1 ? 1.5 : 1;
+                          }
+                        }}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="lucide lucide-gauge"
+                        >
+                          <path d="m12 14 4-4" />
+                          <path d="M3.34 19a10 10 0 1 1 17.32 0" />
+                        </svg>
+                      </Button>
                     </div>
                   </div>
                 ) : (
@@ -610,18 +805,15 @@ export default function StoryPage() {
               </TabsContent>
 
               <TabsContent value="watch" className="mt-4">
-                {storyData.videoUrl ? (
-                  <div className="bg-gradient-to-r from-blue-500/5 to-purple-500/5 rounded-lg overflow-hidden shadow-md">
-                    <div className="aspect-video relative">
-                      {/* Video player */}
-                      <video
-                        ref={(el) => setVideoElement(el)}
-                        src={storyData.videoUrl}
-                        poster={storyData.coverImage}
-                        controls
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
+                {storyData.video_url ? (
+                  <div className="aspect-video w-full rounded-lg overflow-hidden">
+                    <video
+                      ref={(el) => setVideoElement(el)}
+                      src={storyData.video_url}
+                      controls
+                      className="w-full h-full"
+                      poster={storyData.cover_image}
+                    />
                   </div>
                 ) : (
                   <div className="text-center py-12 bg-muted/20 rounded-lg">

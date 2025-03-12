@@ -1,11 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useUser } from "./UserProvider";
-import { toggleFavorite, toggleBookmark } from "@/lib/user-actions";
 import { Heart, Bookmark } from "lucide-react";
 import {
   Card,
@@ -27,6 +26,8 @@ interface StoryCardProps {
   isFavorite?: boolean;
   isBookmarked?: boolean;
   onClick?: () => void;
+  onFavoriteToggle?: () => void;
+  onBookmarkToggle?: () => void;
   compact?: boolean;
 }
 
@@ -39,19 +40,54 @@ const StoryCard = ({
   isFavorite = false,
   isBookmarked = false,
   onClick = () => {},
+  onFavoriteToggle,
+  onBookmarkToggle,
   compact = false,
 }: StoryCardProps) => {
   const router = useRouter();
   const { user } = useUser();
+  const [isHovering, setIsHovering] = useState(false);
+  const defaultImage =
+    "https://images.unsplash.com/photo-1618945524163-32451704cbb8?w=300&q=80";
+
+  const handleFavoriteClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onFavoriteToggle) {
+      onFavoriteToggle();
+    } else {
+      // Fallback to default behavior if no custom handler provided
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+    }
+  };
+
+  const handleBookmarkClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onBookmarkToggle) {
+      onBookmarkToggle();
+    } else {
+      // Fallback to default behavior if no custom handler provided
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+    }
+  };
+
   return (
-    <Card className="w-full h-full overflow-hidden flex flex-col transition-all duration-200 hover:shadow-lg bg-card rounded-xl border-0 shadow">
+    <Card
+      className="w-full h-full overflow-hidden flex flex-col transition-all duration-200 hover:shadow-lg bg-card rounded-xl border-0 shadow"
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+    >
       <Link href={`/story/${id}`}>
         <div className="relative w-full aspect-square overflow-hidden">
           <Image
-            src={
-              coverImage ||
-              "https://images.unsplash.com/photo-1618945524163-32451704cbb8?w=300&q=80"
-            }
+            src={coverImage || defaultImage}
             alt={title}
             fill
             className="object-cover transition-transform duration-300 hover:scale-105"
@@ -60,36 +96,22 @@ const StoryCard = ({
             <Button
               variant="ghost"
               size="icon"
-              className={`h-8 w-8 rounded-full bg-background/80 ${isFavorite ? "text-red-500" : "text-gray-500"}`}
-              onClick={async (e) => {
-                e.preventDefault();
-                // Favorilere eklemek için login kontrolü
-                if (!user) {
-                  router.push("/login");
-                  return;
-                }
-                // Favorilere ekle/çıkar
-                const newValue = !isFavorite;
-                await toggleFavorite(user.id, id, newValue);
-              }}
+              className={`h-8 w-8 rounded-full bg-background/80 ${isFavorite ? "text-red-500" : "text-gray-500"} ${isHovering ? "opacity-100" : "opacity-80 hover:opacity-100"}`}
+              onClick={handleFavoriteClick}
+              aria-label={isFavorite ? "Favorilerden çıkar" : "Favorilere ekle"}
             >
               <Heart size={16} className={isFavorite ? "fill-current" : ""} />
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              className={`h-8 w-8 rounded-full bg-background/80 ${isBookmarked ? "text-blue-500" : "text-gray-500"}`}
-              onClick={async (e) => {
-                e.preventDefault();
-                // Yer işaretlerine eklemek için login kontrolü
-                if (!user) {
-                  router.push("/login");
-                  return;
-                }
-                // Yer işaretlerine ekle/çıkar
-                const newValue = !isBookmarked;
-                await toggleBookmark(user.id, id, newValue);
-              }}
+              className={`h-8 w-8 rounded-full bg-background/80 ${isBookmarked ? "text-blue-500" : "text-gray-500"} ${isHovering ? "opacity-100" : "opacity-80 hover:opacity-100"}`}
+              onClick={handleBookmarkClick}
+              aria-label={
+                isBookmarked
+                  ? "Yer işaretlerinden çıkar"
+                  : "Yer işaretlerine ekle"
+              }
             >
               <Bookmark
                 size={16}
@@ -111,20 +133,17 @@ const StoryCard = ({
         </CardContent>
       )}
       <CardFooter className="p-3 pt-0">
-        <Link href={`/story/${id}`} className="w-full">
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full text-sm"
-            onClick={(e) => {
-              e.preventDefault();
-              if (onClick) onClick();
-              window.location.href = `/story/${id}`;
-            }}
-          >
-            {t("story.readButton")}
-          </Button>
-        </Link>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full text-sm"
+          onClick={(e) => {
+            e.preventDefault();
+            if (onClick) onClick();
+          }}
+        >
+          {t("story.readButton")}
+        </Button>
       </CardFooter>
     </Card>
   );

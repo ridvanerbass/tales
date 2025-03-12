@@ -27,22 +27,46 @@ const StoryStats = ({ storyId }: StoryStatsProps) => {
           ? `00000000-0000-0000-0000-${storyId.replace("story-", "").padStart(12, "0")}`
           : storyId;
 
-        // Hikaye istatistiklerini getir
-        const { data, error } = await supabase
-          .from("stories")
-          .select("views, likes, bookmarks, listens, read_time")
-          .eq("id", uuidStoryId)
-          .single();
+        // Check cache first
+        const cacheKey = `storyStats:${uuidStoryId}`;
+        const cachedData = sessionStorage.getItem(cacheKey);
+        const cacheTimestamp = parseInt(
+          sessionStorage.getItem(`${cacheKey}:timestamp`) || "0",
+        );
+        const now = Date.now();
+        const cacheExpiry = 60 * 1000; // 1 minute
 
-        if (error) throw error;
+        if (cachedData && now - cacheTimestamp < cacheExpiry) {
+          // Use cached data
+          setStats(JSON.parse(cachedData));
+        } else {
+          // Hikaye istatistiklerini getir
+          const { data, error } = await supabase
+            .from("stories")
+            .select("views, likes, bookmarks, listens, read_time")
+            .eq("id", uuidStoryId)
+            .single();
 
-        setStats({
-          views: data?.views || 0,
-          likes: data?.likes || 0,
-          bookmarks: data?.bookmarks || 0,
-          listens: data?.listens || 0,
-          readTime: data?.read_time || 0,
-        });
+          if (error) throw error;
+
+          const statsData = {
+            views: data?.views || 0,
+            likes: data?.likes || 0,
+            bookmarks: data?.bookmarks || 0,
+            listens: data?.listens || 0,
+            readTime: data?.read_time || 0,
+          };
+
+          setStats(statsData);
+
+          // Cache the results
+          try {
+            sessionStorage.setItem(cacheKey, JSON.stringify(statsData));
+            sessionStorage.setItem(`${cacheKey}:timestamp`, now.toString());
+          } catch (storageError) {
+            console.log("SessionStorage error:", storageError);
+          }
+        }
       } catch (error) {
         console.error("İstatistik getirme hatası:", error);
       } finally {

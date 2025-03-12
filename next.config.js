@@ -10,8 +10,9 @@ const nextConfig = {
       },
     ],
   },
+  // Enable webpack cache for better performance
   webpack: (config, { isServer }) => {
-    // Fix for webpack cache issues
+    // Configure webpack cache
     config.cache = {
       type: "filesystem",
       buildDependencies: {

@@ -46,35 +46,119 @@ export default function AdminAnalytics() {
   const fetchAnalytics = async () => {
     setLoading(true);
     try {
-      // Ziyaretçi verilerini getir
-      const { data: visitorsData, error: visitorsError } = await supabase
-        .from("visitors")
-        .select("*")
-        .gte("visit_time", `${dateRange.start}T00:00:00`)
-        .lte("visit_time", `${dateRange.end}T23:59:59`)
-        .order("visit_time", { ascending: false });
+      // Generate cache key based on date range
+      const cacheKey = `analytics:${dateRange.start}:${dateRange.end}`;
+      const cachedData = sessionStorage.getItem(cacheKey);
 
-      if (visitorsError) throw visitorsError;
-      setVisitors(visitorsData || []);
+      if (cachedData) {
+        // Use cached data if available
+        const parsedData = JSON.parse(cachedData);
+        setVisitors(parsedData.visitors || []);
+        setActivities(parsedData.activities || []);
+      } else {
+        // Ziyaretçi verilerini getir
+        const { data: visitorsData, error: visitorsError } = await supabase
+          .from("visitors")
+          .select("*")
+          .gte("visit_time", `${dateRange.start}T00:00:00`)
+          .lte("visit_time", `${dateRange.end}T23:59:59`)
+          .order("visit_time", { ascending: false });
 
-      // Aktivite verilerini getir
-      const { data: activitiesData, error: activitiesError } = await supabase
-        .from("user_activities")
-        .select("*, stories(title)")
-        .gte("created_at", `${dateRange.start}T00:00:00`)
-        .lte("created_at", `${dateRange.end}T23:59:59`)
-        .order("created_at", { ascending: false });
+        if (visitorsError) throw visitorsError;
+        setVisitors(visitorsData || []);
 
-      if (activitiesError) throw activitiesError;
-      setActivities(activitiesData || []);
+        // Aktivite verilerini getir
+        const { data: activitiesData, error: activitiesError } = await supabase
+          .from("user_activities")
+          .select("*, stories(title)")
+          .gte("created_at", `${dateRange.start}T00:00:00`)
+          .lte("created_at", `${dateRange.end}T23:59:59`)
+          .order("created_at", { ascending: false });
+
+        if (activitiesError) throw activitiesError;
+        setActivities(activitiesData || []);
+
+        // Cache the results
+        try {
+          sessionStorage.setItem(
+            cacheKey,
+            JSON.stringify({
+              visitors: visitorsData || [],
+              activities: activitiesData || [],
+            }),
+          );
+        } catch (storageError) {
+          console.log("SessionStorage error:", storageError);
+        }
+      }
 
       // İstatistikleri hesapla
       const uniqueIPs = new Set(visitorsData?.map((v) => v.ip_address) || []);
+
+      // Ortalama oturum süresini hesapla
+      let avgSessionTime = 0;
+      if (visitorsData && visitorsData.length > 0) {
+        // IP adreslerine göre ziyaretleri grupla
+        const sessionsByIP = {};
+        visitorsData.forEach((visit) => {
+          if (!sessionsByIP[visit.ip_address]) {
+            sessionsByIP[visit.ip_address] = [];
+          }
+          sessionsByIP[visit.ip_address].push(new Date(visit.visit_time));
+        });
+
+        // Her IP için oturum sürelerini hesapla
+        let totalSessionTime = 0;
+        let sessionCount = 0;
+
+        Object.values(sessionsByIP).forEach((sessions: Date[]) => {
+          // Ziyaretleri zamana göre sırala
+          sessions.sort((a, b) => a.getTime() - b.getTime());
+
+          // Oturumları belirle (30 dakikadan fazla boşluk varsa yeni oturum)
+          let currentSessionStart = sessions[0];
+          let lastVisit = sessions[0];
+
+          for (let i = 1; i < sessions.length; i++) {
+            const currentVisit = sessions[i];
+            const timeDiff =
+              (currentVisit.getTime() - lastVisit.getTime()) / 1000; // saniye cinsinden
+
+            if (timeDiff > 1800) {
+              // 30 dakika = 1800 saniye
+              // Önceki oturumu sonlandır ve süresini hesapla
+              const sessionDuration =
+                (lastVisit.getTime() - currentSessionStart.getTime()) / 1000;
+              if (sessionDuration > 0) {
+                totalSessionTime += sessionDuration;
+                sessionCount++;
+              }
+              // Yeni oturum başlat
+              currentSessionStart = currentVisit;
+            }
+
+            lastVisit = currentVisit;
+          }
+
+          // Son oturumu da ekle
+          const lastSessionDuration =
+            (lastVisit.getTime() - currentSessionStart.getTime()) / 1000;
+          if (lastSessionDuration > 0) {
+            totalSessionTime += lastSessionDuration;
+            sessionCount++;
+          }
+        });
+
+        // Ortalama oturum süresini hesapla (saniye cinsinden)
+        avgSessionTime =
+          sessionCount > 0 ? Math.round(totalSessionTime / sessionCount) : 0;
+      }
+
       setStats({
         totalVisitors: visitorsData?.length || 0,
         uniqueVisitors: uniqueIPs.size,
         totalPageViews: visitorsData?.filter((v) => v.page_visited).length || 0,
-        averageSessionTime: 0, // Bu veriyi hesaplamak için daha fazla işlem gerekebilir
+        averageSessionTime: avgSessionTime,
       });
     } catch (error) {
       console.error("Analytics verilerini getirme hatası:", error);
@@ -193,7 +277,11 @@ export default function AdminAnalytics() {
                     <p className="text-sm text-muted-foreground">
                       Ort. Oturum Süresi
                     </p>
-                    <h3 className="text-2xl font-bold">00:03:24</h3>
+                    <h3 className="text-2xl font-bold">
+                      {stats.averageSessionTime
+                        ? `${Math.floor(stats.averageSessionTime / 60)}:${String(Math.floor(stats.averageSessionTime % 60)).padStart(2, "0")}`
+                        : "00:00"}
+                    </h3>
                   </div>
                   <Clock className="h-8 w-8 text-primary opacity-75" />
                 </CardContent>
@@ -266,7 +354,16 @@ export default function AdminAnalytics() {
                           {filteredVisitors.length > 0 ? (
                             filteredVisitors.map((visitor) => (
                               <TableRow key={visitor.id}>
-                                <TableCell>{visitor.ip_address}</TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <span>{visitor.ip_address}</span>
+                                    {visitor.country && (
+                                      <span className="text-xs px-1.5 py-0.5 bg-muted rounded-full">
+                                        {visitor.country}
+                                      </span>
+                                    )}
+                                  </div>
+                                </TableCell>
                                 <TableCell className="max-w-[200px] truncate">
                                   {visitor.user_agent}
                                 </TableCell>

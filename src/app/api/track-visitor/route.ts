@@ -3,7 +3,8 @@ import { supabase } from "@/lib/supabase-client";
 
 export async function POST(request: Request) {
   try {
-    const { ip, userAgent, language, referrer, page } = await request.json();
+    const { ip, userAgent, language, referrer, page, country } =
+      await request.json();
 
     // Ziyaretçi bilgilerini kaydet
     try {
@@ -22,6 +23,7 @@ export async function POST(request: Request) {
           language: language || "tr",
           referrer: referrer || "",
           page_visited: page || "/",
+          country: country || "Unknown",
           visit_time: new Date().toISOString(),
         })
         .select();

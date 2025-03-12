@@ -1,7 +1,16 @@
 import { supabase } from "./supabase-client";
+import cache from "./cache";
 
 // Kategorileri getir
 export async function getCategories() {
+  // Check cache first
+  const cacheKey = "categories";
+  const cachedData = cache.get(cacheKey);
+  if (cachedData) {
+    return cachedData;
+  }
+
+  // If not in cache, fetch from database
   const { data, error } = await supabase
     .from("categories")
     .select("*")
@@ -12,11 +21,21 @@ export async function getCategories() {
     return [];
   }
 
+  // Store in cache for 5 minutes
+  cache.set(cacheKey, data, 5 * 60 * 1000);
   return data;
 }
 
 // Belirli bir kategoriyi getir
 export async function getCategory(id: string) {
+  // Check cache first
+  const cacheKey = `category:${id}`;
+  const cachedData = cache.get(cacheKey);
+  if (cachedData) {
+    return cachedData;
+  }
+
+  // If not in cache, fetch from database
   const { data, error } = await supabase
     .from("categories")
     .select("*")
@@ -28,11 +47,21 @@ export async function getCategory(id: string) {
     return null;
   }
 
+  // Store in cache for 5 minutes
+  cache.set(cacheKey, data, 5 * 60 * 1000);
   return data;
 }
 
 // Hikayeleri getir
 export async function getStories() {
+  // Check cache first
+  const cacheKey = "stories";
+  const cachedData = cache.get(cacheKey);
+  if (cachedData) {
+    return cachedData;
+  }
+
+  // If not in cache, fetch from database
   const { data, error } = await supabase
     .from("stories")
     .select("*")
@@ -43,15 +72,25 @@ export async function getStories() {
     return [];
   }
 
+  // Store in cache for 2 minutes
+  cache.set(cacheKey, data, 2 * 60 * 1000);
   return data;
 }
 
 // Popüler hikayeleri getir
 export async function getPopularStories(limit = 5) {
+  // Check cache first
+  const cacheKey = `popularStories:${limit}`;
+  const cachedData = cache.get(cacheKey);
+  if (cachedData) {
+    return cachedData;
+  }
+
+  // If not in cache, fetch from database
   const { data, error } = await supabase
     .from("stories")
-    .select("*, stats!inner(*)")
-    .order("views", { foreignTable: "stats", ascending: false })
+    .select("*")
+    .order("views", { ascending: false })
     .limit(limit);
 
   if (error) {
@@ -59,14 +98,28 @@ export async function getPopularStories(limit = 5) {
     return [];
   }
 
+  // Store in cache for 10 minutes
+  cache.set(cacheKey, data, 10 * 60 * 1000);
   return data;
 }
 
 // Belirli bir hikayeyi getir
 export async function getStory(id: string) {
+  // Check cache first
+  const cacheKey = `story:${id}`;
+  const cachedData = cache.get(cacheKey);
+  if (cachedData) {
+    // Still increment views even if from cache
+    incrementStoryViews(id).catch((err) =>
+      console.error("View increment error:", err),
+    );
+    return cachedData;
+  }
+
+  // If not in cache, fetch from database
   const { data, error } = await supabase
     .from("stories")
-    .select("*, stats(*)")
+    .select("*")
     .eq("id", id)
     .single();
 
@@ -76,13 +129,25 @@ export async function getStory(id: string) {
   }
 
   // Görüntülenme sayısını artır
-  await incrementStoryViews(id);
+  incrementStoryViews(id).catch((err) =>
+    console.error("View increment error:", err),
+  );
 
+  // Store in cache for 5 minutes
+  cache.set(cacheKey, data, 5 * 60 * 1000);
   return data;
 }
 
 // Belirli bir kategoriye ait hikayeleri getir
 export async function getStoriesByCategory(categoryId: string) {
+  // Check cache first
+  const cacheKey = `storiesByCategory:${categoryId}`;
+  const cachedData = cache.get(cacheKey);
+  if (cachedData) {
+    return cachedData;
+  }
+
+  // If not in cache, fetch from database
   const { data, error } = await supabase
     .from("stories")
     .select("*")
@@ -94,6 +159,8 @@ export async function getStoriesByCategory(categoryId: string) {
     return [];
   }
 
+  // Store in cache for 5 minutes
+  cache.set(cacheKey, data, 5 * 60 * 1000);
   return data;
 }
 

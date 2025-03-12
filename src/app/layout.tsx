@@ -4,6 +4,7 @@ import { Inter } from "next/font/google";
 import Script from "next/script";
 import { ThemeProvider } from "./theme-provider";
 import { UserProvider } from "@/components/UserProvider";
+import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 import { initLanguage } from "@/lib/i18n";
 
@@ -37,6 +38,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <UserProvider>
             {children}
+            <Toaster />
             <TempoInit />
           </UserProvider>
         </ThemeProvider>
