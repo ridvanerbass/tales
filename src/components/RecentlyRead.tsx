@@ -22,47 +22,8 @@ interface RecentlyReadProps {
 }
 
 const RecentlyRead = ({
-  stories = [
-    {
-      id: "story-1",
-      title: "Kırmızı Başlıklı Kız",
-      description:
-        "Büyükannesini ziyarete giden küçük bir kızın orman macerasını anlatan klasik bir masal.",
-      coverImage:
-        "https://images.unsplash.com/photo-1633477189729-9290b3261d0a?w=300&q=80",
-      category: "Klasik Masallar",
-      lastReadAt: "2 saat önce",
-      progress: 45,
-      isFavorite: true,
-      isBookmarked: false,
-    },
-    {
-      id: "story-2",
-      title: "Uyuyan Güzel",
-      description:
-        "Bir prensesin yüz yıllık uykuya dalması ve onu uyandıran prensin hikayesi.",
-      coverImage:
-        "https://images.unsplash.com/photo-1518756131217-31eb79b20e8f?w=300&q=80",
-      category: "Klasik Masallar",
-      lastReadAt: "Dün",
-      progress: 75,
-      isFavorite: false,
-      isBookmarked: true,
-    },
-    {
-      id: "story-3",
-      title: "Keloğlan ve Sihirli Taş",
-      description:
-        "Keloğlan'ın bulduğu sihirli taşla başından geçen maceraları anlatan bir Türk halk masalı.",
-      coverImage:
-        "https://images.unsplash.com/photo-1557672172-298e090bd0f1?w=300&q=80",
-      category: "Türk Masalları",
-      lastReadAt: "3 gün önce",
-      progress: 20,
-      isFavorite: false,
-      isBookmarked: false,
-    },
-  ],
+  stories = [],
+
   className,
 }: RecentlyReadProps) => {
   return (

@@ -34,7 +34,7 @@ const StoryCard = ({
   id = "story-1",
   title = "Kırmızı Başlıklı Kız",
   description = "Büyükannesini ziyarete giden küçük bir kızın orman macerasını anlatan klasik bir masal.",
-  coverImage = "https://images.unsplash.com/photo-1633477189729-9290b3261d0a?w=300&q=80",
+  coverImage = "",
   category = "Klasik Masallar",
   isFavorite = false,
   isBookmarked = false,
@@ -48,7 +48,10 @@ const StoryCard = ({
       <Link href={`/story/${id}`}>
         <div className="relative w-full aspect-square overflow-hidden">
           <Image
-            src={coverImage}
+            src={
+              coverImage ||
+              "https://images.unsplash.com/photo-1618945524163-32451704cbb8?w=300&q=80"
+            }
             alt={title}
             fill
             className="object-cover transition-transform duration-300 hover:scale-105"

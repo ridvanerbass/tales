@@ -1,36 +1,53 @@
-import React from "react";
+"use client";
+
+import React, { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import StoryCard from "@/components/StoryCard";
 import { Heart } from "lucide-react";
-
-const favoriteStories = [
-  {
-    id: "story-2",
-    title: "Uyuyan Güzel",
-    description:
-      "Kötü bir büyü sonucu uykuya dalan ve bir prensin öpücüğüyle uyanan prensesin hikayesi.",
-    coverImage:
-      "https://images.unsplash.com/photo-1518756131217-31eb79b20e8f?w=300&q=80",
-    category: "Klasik Masallar",
-    isFavorite: true,
-    isBookmarked: false,
-  },
-  {
-    id: "story-5",
-    title: "Külkedisi",
-    description:
-      "Üvey annesi ve kız kardeşleri tarafından kötü davranılan genç bir kızın balo hikayesi.",
-    coverImage:
-      "https://images.unsplash.com/photo-1516251193007-45ef944ab0c6?w=300&q=80",
-    category: "Klasik Masallar",
-    isFavorite: true,
-    isBookmarked: true,
-  },
-];
-
+import { supabase } from "@/lib/supabase-client";
+import { useUser } from "@/components/UserProvider";
 import RequireAuth from "@/components/RequireAuth";
 
 export default function FavoritesPage() {
+  const { user } = useUser();
+  const [favoriteStories, setFavoriteStories] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchFavoriteStories = async () => {
+      if (!user) return;
+
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from("user_stories")
+          .select("*, stories(*)")
+          .eq("user_id", user.id)
+          .eq("is_favorite", true);
+
+        if (error) throw error;
+
+        const formattedStories = data.map((item) => ({
+          id: item.stories.id,
+          title: item.stories.title,
+          description: item.stories.description,
+          coverImage: item.stories.cover_image,
+          category: item.stories.category,
+          isFavorite: item.is_favorite,
+          isBookmarked: item.is_bookmarked,
+        }));
+
+        setFavoriteStories(formattedStories);
+      } catch (error) {
+        console.error("Favori hikayeleri getirme hatası:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFavoriteStories();
+  }, [user]);
+
   return (
     <RequireAuth>
       <div className="min-h-screen bg-background">
@@ -41,7 +58,11 @@ export default function FavoritesPage() {
             <h1 className="text-3xl font-bold">Favorilerim</h1>
           </div>
 
-          {favoriteStories.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-12">
+              <p>Yükleniyor...</p>
+            </div>
+          ) : favoriteStories.length === 0 ? (
             <div className="text-center py-12 bg-muted/20 rounded-lg">
               <p className="text-muted-foreground mb-2">
                 Henüz favori masalınız bulunmuyor.

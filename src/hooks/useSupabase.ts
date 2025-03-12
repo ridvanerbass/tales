@@ -93,8 +93,6 @@ export function useSupabaseAuth() {
         options: {
           data: { name },
           emailRedirectTo: `${window.location.origin}/login`,
-          // Email onayını devre dışı bırak
-          emailConfirm: false,
         },
       });
 
@@ -131,20 +129,6 @@ export function useSupabaseAuth() {
 
       // Kullanıcıyı otomatik olarak giriş yaptır
       if (data.user) {
-        // Önce email_confirmed_at değerini güncelle
-        try {
-          const { error: updateError } =
-            await supabase.auth.admin.updateUserById(data.user.id, {
-              email_confirmed: true,
-            });
-
-          if (updateError) {
-            console.error("Email onaylama hatası:", updateError);
-          }
-        } catch (updateError) {
-          console.error("Email onaylama hatası:", updateError);
-        }
-
         // Otomatik giriş yap
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,

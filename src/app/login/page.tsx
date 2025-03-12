@@ -61,6 +61,8 @@ export default function LoginPage() {
       }
 
       if (user) {
+        console.log("Login successful, redirecting to home");
+        router.refresh();
         router.push("/");
       }
     } catch (error) {
@@ -98,6 +100,8 @@ export default function LoginPage() {
 
       if (user) {
         // Kayıt başarılı, ana sayfaya yönlendir
+        console.log("Registration successful, redirecting to home");
+        router.refresh();
         router.push("/");
       } else {
         // Kullanıcı oluşturuldu ama bir sorun var

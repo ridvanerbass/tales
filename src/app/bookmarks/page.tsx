@@ -1,36 +1,53 @@
-import React from "react";
+"use client";
+
+import React, { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import StoryCard from "@/components/StoryCard";
 import { Bookmark } from "lucide-react";
-
-const bookmarkedStories = [
-  {
-    id: "story-1",
-    title: "Kırmızı Başlıklı Kız",
-    description:
-      "Büyükannesini ziyarete giden küçük bir kızın orman macerasını anlatan klasik bir masal.",
-    coverImage:
-      "https://images.unsplash.com/photo-1633477189729-9290b3261d0a?w=300&q=80",
-    category: "Klasik Masallar",
-    isFavorite: false,
-    isBookmarked: true,
-  },
-  {
-    id: "story-5",
-    title: "Külkedisi",
-    description:
-      "Üvey annesi ve kız kardeşleri tarafından kötü davranılan genç bir kızın balo hikayesi.",
-    coverImage:
-      "https://images.unsplash.com/photo-1516251193007-45ef944ab0c6?w=300&q=80",
-    category: "Klasik Masallar",
-    isFavorite: true,
-    isBookmarked: true,
-  },
-];
-
+import { supabase } from "@/lib/supabase-client";
+import { useUser } from "@/components/UserProvider";
 import RequireAuth from "@/components/RequireAuth";
 
 export default function BookmarksPage() {
+  const { user } = useUser();
+  const [bookmarkedStories, setBookmarkedStories] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchBookmarkedStories = async () => {
+      if (!user) return;
+
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from("user_stories")
+          .select("*, stories(*)")
+          .eq("user_id", user.id)
+          .eq("is_bookmarked", true);
+
+        if (error) throw error;
+
+        const formattedStories = data.map((item) => ({
+          id: item.stories.id,
+          title: item.stories.title,
+          description: item.stories.description,
+          coverImage: item.stories.cover_image,
+          category: item.stories.category,
+          isFavorite: item.is_favorite,
+          isBookmarked: item.is_bookmarked,
+        }));
+
+        setBookmarkedStories(formattedStories);
+      } catch (error) {
+        console.error("Yer işaretli hikayeleri getirme hatası:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBookmarkedStories();
+  }, [user]);
+
   return (
     <RequireAuth>
       <div className="min-h-screen bg-background">
@@ -41,7 +58,11 @@ export default function BookmarksPage() {
             <h1 className="text-3xl font-bold">Yer İşaretlerim</h1>
           </div>
 
-          {bookmarkedStories.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-12">
+              <p>Yükleniyor...</p>
+            </div>
+          ) : bookmarkedStories.length === 0 ? (
             <div className="text-center py-12 bg-muted/20 rounded-lg">
               <p className="text-muted-foreground mb-2">
                 Henüz yer işareti eklediğiniz masal bulunmuyor.

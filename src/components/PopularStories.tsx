@@ -23,62 +23,8 @@ interface PopularStoriesProps {
 }
 
 const PopularStories = ({
-  stories = [
-    {
-      id: "story-1",
-      title: "Kırmızı Başlıklı Kız",
-      description:
-        "Büyükannesini ziyarete giden küçük bir kızın orman macerasını anlatan klasik bir masal.",
-      coverImage:
-        "https://images.unsplash.com/photo-1633477189729-9290b3261d0a?w=300&q=80",
-      category: "Klasik Masallar",
-      isFavorite: false,
-      isBookmarked: true,
-    },
-    {
-      id: "story-2",
-      title: "Uyuyan Güzel",
-      description:
-        "Kötü bir büyü sonucu uykuya dalan ve bir prensin öpücüğüyle uyanan prensesin hikayesi.",
-      coverImage:
-        "https://images.unsplash.com/photo-1518756131217-31eb79b20e8f?w=300&q=80",
-      category: "Klasik Masallar",
-      isFavorite: true,
-      isBookmarked: false,
-    },
-    {
-      id: "story-3",
-      title: "Hansel ve Gretel",
-      description:
-        "Ormanda kaybolan ve şekerden yapılmış bir eve rastlayan iki kardeşin macerası.",
-      coverImage:
-        "https://images.unsplash.com/photo-1509281373149-e957c6296406?w=300&q=80",
-      category: "Klasik Masallar",
-      isFavorite: false,
-      isBookmarked: false,
-    },
-    {
-      id: "story-4",
-      title: "Rapunzel",
-      description: "Uzun saçlı bir kızın kuleden kurtulma hikayesi.",
-      coverImage:
-        "https://images.unsplash.com/photo-1568667256549-094345857637?w=300&q=80",
-      category: "Klasik Masallar",
-      isFavorite: false,
-      isBookmarked: false,
-    },
-    {
-      id: "story-5",
-      title: "Külkedisi",
-      description:
-        "Üvey annesi ve kız kardeşleri tarafından kötü davranılan genç bir kızın balo hikayesi.",
-      coverImage:
-        "https://images.unsplash.com/photo-1516251193007-45ef944ab0c6?w=300&q=80",
-      category: "Klasik Masallar",
-      isFavorite: true,
-      isBookmarked: true,
-    },
-  ],
+  stories = [],
+
   title = "Popüler Masallar",
   description = "En çok okunan ve sevilen masallar",
 }: PopularStoriesProps) => {
@@ -104,52 +50,65 @@ const PopularStories = ({
             <h2 className="text-2xl font-bold">{title}</h2>
             <p className="text-muted-foreground">{description}</p>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={scrollLeft}
-              aria-label="Scroll left"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={scrollRight}
-              aria-label="Scroll right"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+          {stories.length > 0 && (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={scrollLeft}
+                aria-label="Scroll left"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={scrollRight}
+                aria-label="Scroll right"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
 
-        <div
-          className="w-full overflow-x-auto whitespace-nowrap pb-4"
-          ref={scrollContainerRef}
-        >
-          <div className="flex space-x-4 pb-4">
-            {stories.map((story) => (
-              <div key={story.id} className="shrink-0 w-[180px] h-full">
-                <StoryCard
-                  id={story.id}
-                  title={story.title}
-                  description={story.description}
-                  coverImage={story.coverImage}
-                  category={story.category}
-                  isFavorite={story.isFavorite}
-                  isBookmarked={story.isBookmarked}
-                  onClick={() => console.log(`Navigate to story ${story.id}`)}
-                  compact={true}
-                />
-              </div>
-            ))}
+        {stories.length === 0 ? (
+          <div className="text-center py-12 bg-muted/20 rounded-lg">
+            <p className="text-muted-foreground">
+              Henüz popüler hikaye bulunmuyor.
+            </p>
           </div>
-          {/* Scroll indicator */}
-          <div className="w-full h-1 bg-muted mt-4 rounded-full overflow-hidden">
-            <div className="bg-primary h-full w-1/3 rounded-full"></div>
+        ) : (
+          <div
+            className="w-full overflow-x-auto whitespace-nowrap pb-4"
+            ref={scrollContainerRef}
+          >
+            <div className="flex space-x-4 pb-4">
+              {stories.map((story) => (
+                <div key={story.id} className="shrink-0 w-[180px] h-full">
+                  <StoryCard
+                    id={story.id}
+                    title={story.title}
+                    description={story.description}
+                    coverImage={
+                      story.coverImage ||
+                      "https://images.unsplash.com/photo-1618945524163-32451704cbb8?w=300&q=80"
+                    }
+                    category={story.category}
+                    isFavorite={story.isFavorite}
+                    isBookmarked={story.isBookmarked}
+                    onClick={() => console.log(`Navigate to story ${story.id}`)}
+                    compact={true}
+                  />
+                </div>
+              ))}
+            </div>
+            {/* Scroll indicator */}
+            <div className="w-full h-1 bg-muted mt-4 rounded-full overflow-hidden">
+              <div className="bg-primary h-full w-1/3 rounded-full"></div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </section>
   );
